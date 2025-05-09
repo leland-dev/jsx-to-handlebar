@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+      "target": "es2018",
+      "module": "commonjs",
+      "lib": ["es2018", "dom"],
+      "jsx": "react",
+      "declaration": true,
+      "outDir": "./dist",
+      "rootDir": ".",
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "forceConsistentCasingInFileNames": true,
+      "types": ["vitest/globals", "node"],
+      "moduleResolution": "node"
+    },
+    "include": [
+      "src/**/*",
+      "test/**/*",
+      "scripts/**/*"
+    ],
+    "exclude": [
+      "node_modules",
+      "dist",
+    ]
+  } 
