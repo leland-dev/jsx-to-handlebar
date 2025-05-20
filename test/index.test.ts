@@ -38,6 +38,15 @@ describe('babel-plugin-jsx-to-handlebars', () => {
       const output = transform(input);
       await expectEqual(output, '<div>{"{{user_profile_data}}"}</div>');
     });
+
+    it('should handle nested variables in strings', async () => {
+      const input = `<Link href={\`\${applicantBaseUrl}/inbox\`}>Inbox</Link>`;
+      const output = transform(input);
+      await expectEqual(
+        output,
+        `<Link href={"{{applicant_base_url}}/inbox"}>Inbox</Link>`
+      );
+    });
   });
 
   describe('Conditional transformation', () => {
@@ -85,34 +94,34 @@ describe('babel-plugin-jsx-to-handlebars', () => {
       );
     });
 
-    // it('should transform nested logical AND expressions', () => {
-    //   const input = `
-    //     <div>
-    //       {isAdmin && isPremium && isActive ? (
-    //         <span>Active Premium Admin</span>
-    //       ) : (
-    //         <span>Regular User</span>
-    //       )}
-    //     </div>
-    //   `;
-    //   const output = transform(input);
-    //   expectEqual(
-    //     output,
-    //     `<div>
-    //     {{#if is_admin}}
-    //     {{#if is_premium}}
-    //     {{#if is_active}}
-    //     <span>Active Premium Admin</span>
-    //     {{else}}
-    //     <span>Regular User</span>
-    //     {{/if}}
-    //     {{/if}}
-    //     {{/if}}
-    //   </div>`
-    //   );
-    // });
+    it('should transform nested logical AND expressions', () => {
+      const input = `
+        <div>
+          {isAdmin && isPremium && isActive ? (
+            <span>Active Premium Admin</span>
+          ) : (
+            <span>Regular User</span>
+          )}
+        </div>
+      `;
+      const output = transform(input);
+      expectEqual(
+        output,
+        `<div>
+        {{#if is_admin}}
+        {{#if is_premium}}
+        {{#if is_active}}
+        <span>Active Premium Admin</span>
+        {{else}}
+        <span>Regular User</span>
+        {{/if}}
+        {{/if}}
+        {{/if}}
+      </div>`
+      );
+    });
 
-    // it('should transform nested logical OR expressions', () => {
+    // it('should not transform nested logical OR expressions', () => {
     //   const input = `
     //     <div>
     //       {isAdmin || (isModerator && hasPermission) ? (
@@ -127,6 +136,7 @@ describe('babel-plugin-jsx-to-handlebars', () => {
     //     output,
     //     `<div>
     //     {{#if is_admin}}
+    //     <span>Has Access</span>
     //     {{else}}
     //     {{#if is_moderator}}
     //     {{#if has_permission}}

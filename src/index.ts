@@ -10,17 +10,20 @@ import {
   NumericLiteral,
   Expression,
   LogicalExpression,
+  Node,
 } from '@babel/types';
+
+type HandleExpressionResult = t.StringLiteral | t.TemplateLiteral;
 
 export default declare((api: BabelAPI): PluginObj<PluginPass> => {
   api.assertVersion(7);
 
   function handleLogicalExpression(
-    path: NodePath<t.LogicalExpression>
-  ): t.Expression {
-    const operator = path.node.operator;
-    const left = path.node.left;
-    const right = path.node.right;
+    node: LogicalExpression
+  ): HandleExpressionResult {
+    const operator = node.operator;
+    const left = node.left;
+    const right = node.right;
 
     if (operator === '&&') {
       // For AND, we nest the conditions
@@ -38,7 +41,7 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
             cooked: `{{/if}}{{/if}}`,
           }),
         ],
-        [path.node.right]
+        [right]
       );
     } else if (operator === '||') {
       // For OR, we use else blocks
@@ -60,17 +63,17 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
             cooked: `{{/if}}{{/if}}`,
           }),
         ],
-        [path.node.right]
+        [right]
       );
     }
 
-    return path.node;
+    throw new Error(`Unknown logical operator ${operator}`);
   }
 
   function createIfBlock(
     condition: Expression | t.TemplateLiteral,
     consequent: Expression
-  ): t.TemplateLiteral {
+  ): HandleExpressionResult {
     const conditionStr = t.isTemplateLiteral(condition)
       ? handleExpression(condition)
       : getConditionString(condition);
@@ -90,7 +93,7 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
     condition: Expression | t.TemplateLiteral,
     consequent: Expression,
     alternate?: Expression
-  ): t.TemplateLiteral {
+  ): HandleExpressionResult {
     const conditionStr = t.isTemplateLiteral(condition)
       ? condition
       : getConditionString(condition);
@@ -111,7 +114,7 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
     left: Expression | t.TemplateLiteral,
     right: Expression | t.TemplateLiteral,
     consequent: Expression
-  ): t.TemplateLiteral {
+  ): HandleExpressionResult {
     const leftStr = t.isTemplateLiteral(left) ? left : getConditionString(left);
     const rightStr = t.isTemplateLiteral(right)
       ? right
@@ -138,7 +141,7 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
     left: Expression | t.TemplateLiteral,
     right: Expression | t.TemplateLiteral,
     consequent: Expression
-  ): t.TemplateLiteral {
+  ): HandleExpressionResult {
     const leftStr = t.isTemplateLiteral(left) ? left : getConditionString(left);
     const rightStr = t.isTemplateLiteral(right)
       ? right
@@ -216,12 +219,10 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
     }
   }
 
-  function handleConditionalExpression(
-    expression: NodePath<ConditionalExpression>
-  ) {
-    const test = expression.node.test;
-    const consequent = expression.node.consequent;
-    const alternate = expression.node.alternate;
+  function handleConditionalExpression(expression: ConditionalExpression) {
+    const test = expression.test;
+    const consequent = expression.consequent;
+    const alternate = expression.alternate;
 
     // Handle template literals in consequent
     if (t.isTemplateLiteral(consequent)) {
@@ -248,60 +249,82 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
         quasisIndex++;
       }
 
-      return t.jsxExpressionContainer(
-        t.stringLiteral(
-          `{{#if ${conditionStr}}}${handlebarsTemplate}{{else}}{{/if}}`
-        )
+      return t.stringLiteral(
+        `{{#if ${conditionStr}}}${handlebarsTemplate}{{else}}{{/if}}`
       );
     }
 
     // Handle logical expressions (&&, ||)
     if (t.isLogicalExpression(test)) {
-      const testPath = expression.get('test') as NodePath<t.LogicalExpression>;
-      const template = handleLogicalExpression(testPath);
-      return t.jsxExpressionContainer(template);
+      const template = handleLogicalExpression(test);
+      return template;
     }
 
     // Handle simple conditions and binary expressions
-    return t.jsxExpressionContainer(
-      createIfElseBlock(test, consequent, alternate)
-    );
+    return createIfElseBlock(test, consequent, alternate);
   }
 
-  function handleExpression(path: NodePath<Expression>) {
-    if (path.isIdentifier()) {
-      const name = path.node.name;
+  function handleTemplateLiteral(node: t.TemplateLiteral) {
+    const expressions = node.expressions.map((expr) => {
+      if (t.isExpression(expr)) {
+        return handleExpression(expr);
+      }
+
+      throw new Error(`Unknown expression type ${expr.type}`);
+    });
+    let str = '';
+    for (let i = 0; i < node.quasis.length; i++) {
+      const quasi = node.quasis[i];
+      const expression = expressions[i] ?? '';
+      if (t.isStringLiteral(expression)) {
+        str += `${quasi.value.raw}${expression.value}`;
+      } else {
+        str += `${quasi.value.raw}${expression}`;
+      }
+    }
+    return t.stringLiteral(str);
+  }
+
+  function handleExpression(node: Expression): HandleExpressionResult {
+    if (t.isIdentifier(node)) {
+      const name = node.name;
       const snakeCaseName = convertToSnakeCase(name);
-      path.replaceWith(
-        t.jsxExpressionContainer(t.stringLiteral(`{{${snakeCaseName}}}`))
-      );
-      return;
+      return t.stringLiteral(`{{${snakeCaseName}}}`);
     }
 
-    if (path.isTemplateLiteral()) {
-      const conditionStr = getConditionString(path.node.quasis[0]);
-      path.replaceWith(
-        t.jsxExpressionContainer(t.stringLiteral(`{{#if ${conditionStr}}}`))
-      );
-      return;
+    if (t.isTemplateLiteral(node)) {
+      return handleTemplateLiteral(node);
     }
 
     // Handle conditional expressions
-    if (path.isConditionalExpression()) {
-      const result = handleConditionalExpression(path);
+    if (t.isConditionalExpression(node)) {
+      const result = handleConditionalExpression(node);
       if (result) {
-        path.replaceWith(result);
+        return result;
       }
-      return;
     }
 
     // Handle direct logical expressions (without ternary)
-    if (path.isLogicalExpression()) {
-      const template = handleLogicalExpression(path);
-      path.replaceWith(t.jsxExpressionContainer(template));
-      return;
+    if (t.isLogicalExpression(node)) {
+      return handleLogicalExpression(node);
     }
+
+    return t.templateLiteral(
+      [
+        t.templateElement({ raw: '', cooked: '' }),
+        t.templateElement({ raw: '', cooked: '' }),
+      ],
+      [node]
+    );
   }
+
+  const handleResult = (result: HandleExpressionResult) => {
+    if (t.isTemplateLiteral(result)) {
+      return handleTemplateLiteral(result);
+    }
+
+    return result;
+  };
 
   return {
     name: 'jsx-to-handlebars',
@@ -310,31 +333,16 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
       JSXExpressionContainer(path: NodePath<JSXExpressionContainer>) {
         const expression = path.get('expression');
 
-        // Handle simple identifiers (variables)
-        if (expression.isIdentifier()) {
-          const name = expression.node.name;
-          const snakeCaseName = convertToSnakeCase(name);
-          path.replaceWith(
-            t.jsxExpressionContainer(t.stringLiteral(`{{${snakeCaseName}}}`))
-          );
+        if (t.isStringLiteral(expression.node)) {
           return;
         }
 
-        // Handle conditional expressions
-        if (expression.isConditionalExpression()) {
-          const result = handleConditionalExpression(expression);
-          if (result) {
-            path.replaceWith(result);
-          }
-          return;
+        if (t.isJSXEmptyExpression(expression.node)) {
+          throw new Error('Cannot handle empty JSX expression');
         }
 
-        // Handle direct logical expressions (without ternary)
-        if (expression.isLogicalExpression()) {
-          const template = handleLogicalExpression(expression);
-          path.replaceWith(t.jsxExpressionContainer(template));
-          return;
-        }
+        const result = handleResult(handleExpression(expression.node));
+        path.replaceWith(t.jsxExpressionContainer(result));
       },
 
       // Remove TypeScript interfaces and type annotations
