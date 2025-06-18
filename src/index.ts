@@ -13,7 +13,7 @@ import {
   Node,
 } from '@babel/types';
 
-type HandleExpressionResult = t.StringLiteral | t.TemplateLiteral;
+type HandleExpressionResult = (t.Expression | t.JSXExpressionContainer)[];
 
 export default declare((api: BabelAPI): PluginObj<PluginPass> => {
   api.assertVersion(7);
@@ -30,41 +30,44 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
       const leftCondition = getConditionString(left);
       const rightCondition = getConditionString(right);
 
-      return t.templateLiteral(
-        [
-          t.templateElement({
-            raw: `{{#if ${leftCondition}}}{{#if ${rightCondition}}}`,
-            cooked: `{{#if ${leftCondition}}}{{#if ${rightCondition}}}`,
-          }),
-          t.templateElement({
-            raw: `{{/if}}{{/if}}`,
-            cooked: `{{/if}}{{/if}}`,
-          }),
-        ],
-        [right]
-      );
+      return [
+        t.templateLiteral(
+          [
+            t.templateElement({
+              raw: `{{#if ${leftCondition}}}{{#if ${rightCondition}}}`,
+              cooked: `{{#if ${leftCondition}}}{{#if ${rightCondition}}}`,
+            }),
+            t.templateElement({
+              raw: `{{/if}}{{/if}}`,
+              cooked: `{{/if}}{{/if}}`,
+            }),
+          ],
+          [right]
+        ),
+      ];
     } else if (operator === '||') {
-      // For OR, we use else blocks
-      const leftCondition = getConditionString(left);
-      const rightCondition = getConditionString(right);
+      throw new Error('OR operator not supported');
+      // // For OR, we use else blocks
+      // const leftCondition = getConditionString(left);
+      // const rightCondition = getConditionString(right);
 
-      return t.templateLiteral(
-        [
-          t.templateElement({
-            raw: `{{#if ${leftCondition}}}`,
-            cooked: `{{#if ${leftCondition}}}`,
-          }),
-          t.templateElement({
-            raw: `{{else}}{{#if ${rightCondition}}}`,
-            cooked: `{{else}}{{#if ${rightCondition}}}`,
-          }),
-          t.templateElement({
-            raw: `{{/if}}{{/if}}`,
-            cooked: `{{/if}}{{/if}}`,
-          }),
-        ],
-        [right]
-      );
+      // return t.templateLiteral(
+      //   [
+      //     t.templateElement({
+      //       raw: `{{#if ${leftCondition}}}`,
+      //       cooked: `{{#if ${leftCondition}}}`,
+      //     }),
+      //     t.templateElement({
+      //       raw: `{{else}}{{#if ${rightCondition}}}`,
+      //       cooked: `{{else}}{{#if ${rightCondition}}}`,
+      //     }),
+      //     t.templateElement({
+      //       raw: `{{/if}}{{/if}}`,
+      //       cooked: `{{/if}}{{/if}}`,
+      //     }),
+      //   ],
+      //   [right]
+      // );
     }
 
     throw new Error(`Unknown logical operator ${operator}`);
@@ -77,37 +80,36 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
     const conditionStr = t.isTemplateLiteral(condition)
       ? handleExpression(condition)
       : getConditionString(condition);
-    return t.templateLiteral(
-      [
-        t.templateElement(
-          { raw: `{{#if ${conditionStr}}}`, cooked: `{{#if ${conditionStr}}}` },
-          false
-        ),
-        t.templateElement({ raw: '{{/if}}', cooked: '{{/if}}' }, true),
-      ],
-      [consequent]
-    );
+    return [
+      t.templateLiteral(
+        [
+          t.templateElement(
+            {
+              raw: `{{#if ${conditionStr}}}`,
+              cooked: `{{#if ${conditionStr}}}`,
+            },
+            false
+          ),
+          t.templateElement({ raw: '{{/if}}', cooked: '{{/if}}' }, true),
+        ],
+        [consequent]
+      ),
+    ];
   }
 
   function createIfElseBlock(
-    condition: Expression | t.TemplateLiteral,
+    condition: Expression,
     consequent: Expression,
     alternate?: Expression
   ): HandleExpressionResult {
-    const conditionStr = t.isTemplateLiteral(condition)
-      ? condition
-      : getConditionString(condition);
-    return t.templateLiteral(
-      [
-        t.templateElement(
-          { raw: `{{#if ${conditionStr}}}`, cooked: `{{#if ${conditionStr}}}` },
-          false
-        ),
-        t.templateElement({ raw: '{{else}}', cooked: '{{else}}' }, false),
-        t.templateElement({ raw: '{{/if}}', cooked: '{{/if}}' }, true),
-      ],
-      [consequent, alternate || t.nullLiteral()]
-    );
+    const conditionStr = getConditionString(condition);
+    return [
+      t.jsxExpressionContainer(t.stringLiteral(`{{#if ${conditionStr}}}`)),
+      ...handleExpression(consequent),
+      t.jsxExpressionContainer(t.stringLiteral('{{else}}')),
+      ...(alternate ? handleExpression(alternate) : []),
+      t.jsxExpressionContainer(t.stringLiteral('{{/if}}')),
+    ];
   }
 
   function createNestedIfBlock(
@@ -119,22 +121,24 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
     const rightStr = t.isTemplateLiteral(right)
       ? right
       : getConditionString(right);
-    return t.templateLiteral(
-      [
-        t.templateElement(
-          {
-            raw: `{{#if ${leftStr}}}{{#if ${rightStr}}}`,
-            cooked: `{{#if ${leftStr}}}{{#if ${rightStr}}}`,
-          },
-          false
-        ),
-        t.templateElement(
-          { raw: '{{/if}}{{/if}}', cooked: '{{/if}}{{/if}}' },
-          true
-        ),
-      ],
-      [consequent]
-    );
+    return [
+      t.templateLiteral(
+        [
+          t.templateElement(
+            {
+              raw: `{{#if ${leftStr}}}{{#if ${rightStr}}}`,
+              cooked: `{{#if ${leftStr}}}{{#if ${rightStr}}}`,
+            },
+            false
+          ),
+          t.templateElement(
+            { raw: '{{/if}}{{/if}}', cooked: '{{/if}}{{/if}}' },
+            true
+          ),
+        ],
+        [consequent]
+      ),
+    ];
   }
 
   function createIfElseWithNestedBlock(
@@ -146,27 +150,29 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
     const rightStr = t.isTemplateLiteral(right)
       ? right
       : getConditionString(right);
-    return t.templateLiteral(
-      [
-        t.templateElement(
-          { raw: `{{#if ${leftStr}}}`, cooked: `{{#if ${leftStr}}}` },
-          false
-        ),
-        t.templateElement(
-          { raw: '{{else}}{{#if ', cooked: '{{else}}{{#if ' },
-          false
-        ),
-        t.templateElement(
-          { raw: `${rightStr}}}`, cooked: `${rightStr}}}` },
-          false
-        ),
-        t.templateElement(
-          { raw: '{{/if}}{{/if}}', cooked: '{{/if}}{{/if}}' },
-          true
-        ),
-      ],
-      [consequent, consequent, consequent]
-    );
+    return [
+      t.templateLiteral(
+        [
+          t.templateElement(
+            { raw: `{{#if ${leftStr}}}`, cooked: `{{#if ${leftStr}}}` },
+            false
+          ),
+          t.templateElement(
+            { raw: '{{else}}{{#if ', cooked: '{{else}}{{#if ' },
+            false
+          ),
+          t.templateElement(
+            { raw: `${rightStr}}}`, cooked: `${rightStr}}}` },
+            false
+          ),
+          t.templateElement(
+            { raw: '{{/if}}{{/if}}', cooked: '{{/if}}{{/if}}' },
+            true
+          ),
+        ],
+        [consequent, consequent, consequent]
+      ),
+    ];
   }
 
   function getConditionString(node: t.Expression): string {
@@ -249,9 +255,11 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
         quasisIndex++;
       }
 
-      return t.stringLiteral(
-        `{{#if ${conditionStr}}}${handlebarsTemplate}{{else}}{{/if}}`
-      );
+      return [
+        t.stringLiteral(
+          `{{#if ${conditionStr}}}${handlebarsTemplate}{{else}}{{/if}}`
+        ),
+      ];
     }
 
     // Handle logical expressions (&&, ||)
@@ -265,7 +273,7 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
   }
 
   function handleTemplateLiteral(node: t.TemplateLiteral) {
-    const expressions = node.expressions.map((expr) => {
+    const expressions = node.expressions.flatMap((expr) => {
       if (t.isExpression(expr)) {
         return handleExpression(expr);
       }
@@ -289,11 +297,11 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
     if (t.isIdentifier(node)) {
       const name = node.name;
       const snakeCaseName = convertToSnakeCase(name);
-      return t.stringLiteral(`{{${snakeCaseName}}}`);
+      return [t.stringLiteral(`{{${snakeCaseName}}}`)];
     }
 
     if (t.isTemplateLiteral(node)) {
-      return handleTemplateLiteral(node);
+      return [handleTemplateLiteral(node)];
     }
 
     // Handle conditional expressions
@@ -309,21 +317,21 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
       return handleLogicalExpression(node);
     }
 
-    return t.templateLiteral(
-      [
-        t.templateElement({ raw: '', cooked: '' }),
-        t.templateElement({ raw: '', cooked: '' }),
-      ],
-      [node]
-    );
+    return [node];
   }
 
   const handleResult = (result: HandleExpressionResult) => {
-    if (t.isTemplateLiteral(result)) {
-      return handleTemplateLiteral(result);
-    }
+    return result.map((expr) => {
+      if (t.isTemplateLiteral(expr)) {
+        return handleTemplateLiteral(expr);
+      }
 
-    return result;
+      if (t.isStringLiteral(expr)) {
+        return t.jsxExpressionContainer(expr);
+      }
+
+      return expr;
+    });
   };
 
   return {
@@ -342,7 +350,12 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
         }
 
         const result = handleResult(handleExpression(expression.node));
-        path.replaceWith(t.jsxExpressionContainer(result));
+        path.replaceWith(result[0]);
+        let next: NodePath = path;
+        result.slice(1).forEach((expr) => {
+          next.insertAfter(expr);
+          next = next.getNextSibling();
+        });
       },
 
       // Remove TypeScript interfaces and type annotations
