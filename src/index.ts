@@ -12,6 +12,7 @@ import {
   LogicalExpression,
   Node,
 } from '@babel/types';
+import { isFalsyNode } from './utils';
 
 type HandleExpressionResult = (t.Expression | t.JSXExpressionContainer)[];
 
@@ -73,6 +74,15 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
     throw new Error(`Unknown logical operator ${operator}`);
   }
 
+  function handleLogicalAndExpression(
+    node: LogicalExpression
+  ): HandleExpressionResult {
+    const left = node.left;
+    const right = node.right;
+
+    return createIfElseBlock(left, right);
+  }
+
   function createIfBlock(
     condition: Expression | t.TemplateLiteral,
     consequent: Expression
@@ -106,8 +116,12 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
     return [
       t.jsxExpressionContainer(t.stringLiteral(`{{#if ${conditionStr}}}`)),
       ...handleExpression(consequent),
-      t.jsxExpressionContainer(t.stringLiteral('{{else}}')),
-      ...(alternate ? handleExpression(alternate) : []),
+      ...(alternate && !isFalsyNode(alternate)
+        ? [
+            t.jsxExpressionContainer(t.stringLiteral('{{else}}')),
+            ...handleExpression(alternate),
+          ]
+        : []),
       t.jsxExpressionContainer(t.stringLiteral('{{/if}}')),
     ];
   }
@@ -314,7 +328,7 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
 
     // Handle direct logical expressions (without ternary)
     if (t.isLogicalExpression(node)) {
-      return handleLogicalExpression(node);
+      return handleLogicalAndExpression(node);
     }
 
     return [node];
@@ -346,10 +360,18 @@ export default declare((api: BabelAPI): PluginObj<PluginPass> => {
         }
 
         if (t.isJSXEmptyExpression(expression.node)) {
-          throw new Error('Cannot handle empty JSX expression');
+          return;
         }
 
-        const result = handleResult(handleExpression(expression.node));
+        const expressionResult = handleExpression(expression.node);
+        if (
+          expressionResult.length === 1 &&
+          expressionResult[0] === expression.node
+        ) {
+          return;
+        }
+
+        const result = handleResult(expressionResult);
         path.replaceWith(result[0]);
         let next: NodePath = path;
         result.slice(1).forEach((expr) => {

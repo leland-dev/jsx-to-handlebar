@@ -1,10 +1,13 @@
 {
-  "name": "jsx-to-handlebar",
-  "version": "1.0.0",
+  "name": "babel-plugin-jsx-to-handlebar",
+  "version": "1.0.5",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "test": "vitest test"
+    "test": "vitest test",
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean"
   },
   "author": "",
   "license": "ISC",
@@ -21,6 +24,7 @@
     "@types/babel__helper-plugin-utils": "^7.10.3",
     "@types/babel__traverse": "^7.20.7",
     "@types/node": "^22.15.17",
+    "tsup": "^8.5.0",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vitest": "^3.1.3"

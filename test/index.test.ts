@@ -28,9 +28,12 @@ describe('babel-plugin-jsx-to-handlebars', () => {
 
   describe('Variable transformation', () => {
     it('should transform simple variable expressions', async () => {
-      const input = '<div>{firstName}</div>';
+      const input = '<div className="my-2">{firstName}</div>';
       const output = transform(input);
-      await expectEqual(output, '<div>{"{{first_name}}"}</div>');
+      await expectEqual(
+        output,
+        '<div className="my-2">{"{{first_name}}"}</div>'
+      );
     });
 
     it('should handle nested camelCase variables', async () => {
@@ -46,6 +49,24 @@ describe('babel-plugin-jsx-to-handlebars', () => {
         output,
         `<Link href={"{{applicant_base_url}}/inbox"}>Inbox</Link>`
       );
+    });
+
+    it('should ignore object expressions', async () => {
+      const input = `
+        <Head>
+          <style
+          dangerouslySetInnerHTML={{
+              __html: \`
+              * {
+                font-size: 1rem;
+              }
+            \`,
+            }}
+          />
+        </Head>
+      `;
+      const output = transform(input);
+      await expectEqual(output, input);
     });
   });
 
@@ -70,6 +91,49 @@ describe('babel-plugin-jsx-to-handlebars', () => {
           <span>User</span>
           {"{{/if}}"}
         </div>`
+      );
+    });
+
+    it('should transform ternary-null statements', async () => {
+      const input = `
+        <div>
+          {isAdmin ? (
+            <span>Admin {firstName}</span>
+          ) : null}
+        </div>
+      `;
+      const output = transform(input);
+      await expectEqual(
+        output,
+        `<div>{"{{#if is_admin}}"}<span>Admin {"{{first_name}}"}</span>{"{{/if}}"}</div>`
+      );
+    });
+
+    it('should transform ternary-undefined statements', async () => {
+      const input = `
+        <div>
+          {isAdmin ? (
+            <span>Admin {firstName}</span>
+          ) : undefined}
+        </div>
+      `;
+      const output = transform(input);
+      await expectEqual(
+        output,
+        `<div>{"{{#if is_admin}}"}<span>Admin {"{{first_name}}"}</span>{"{{/if}}"}</div>`
+      );
+    });
+
+    it('should transform logical AND statements as ternary', async () => {
+      const input = `
+        <div>
+          {isAdmin && <span>Admin</span>}
+        </div>
+      `;
+      const output = transform(input);
+      await expectEqual(
+        output,
+        `<div>{"{{#if is_admin}}"}<span>Admin</span>{"{{/if}}"}</div>`
       );
     });
 
