@@ -1,4 +1,4 @@
-import { transformFileSync } from '@babel/core';
+import { transformFileAsync, transformFileSync } from '@babel/core';
 import fs from 'fs';
 import path from 'path';
 import plugin from '../plugin/index';
@@ -11,7 +11,10 @@ interface BuildOptions {
   exclude?: string[];
 }
 
-export async function transformDirectory(options: BuildOptions): Promise<void> {
+export async function transformDirectory(
+  options: BuildOptions,
+  outputProgress: (text: string) => void
+): Promise<void> {
   const {
     srcDir,
     outDir,
@@ -25,14 +28,15 @@ export async function transformDirectory(options: BuildOptions): Promise<void> {
   }
 
   // Process all files in the source directory
-  await processDirectory(srcDir, outDir, include, exclude);
+  await processDirectory(srcDir, outDir, include, exclude, outputProgress);
 }
 
 async function processDirectory(
   srcDir: string,
   outDir: string,
   include: string[],
-  exclude: string[]
+  exclude: string[],
+  outputProgress: (text: string) => void
 ): Promise<void> {
   const entries = fs.readdirSync(srcDir, { withFileTypes: true });
 
@@ -47,7 +51,13 @@ async function processDirectory(
       }
       // Recursively process subdirectories
       fs.mkdirSync(outPath, { recursive: true });
-      await processDirectory(srcPath, outPath, include, exclude);
+      await processDirectory(
+        srcPath,
+        outPath,
+        include,
+        exclude,
+        outputProgress
+      );
     } else if (entry.isFile()) {
       // Check if file matches any include pattern
       if (!include.some((pattern) => minimatch(entry.name, pattern))) {
@@ -55,8 +65,9 @@ async function processDirectory(
       }
 
       try {
+        outputProgress(`Transforming ${entry.name}`);
         // Transform the file
-        const result = transformFileSync(srcPath, {
+        const result = await transformFileAsync(srcPath, {
           plugins: [plugin],
           parserOpts: {
             plugins: ['jsx', 'typescript'],
