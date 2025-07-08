@@ -1,12 +1,14 @@
 {
-  "name": "babel-plugin-jsx-to-handlebar",
-  "version": "1.0.5",
+  "name": "jsx-to-handlebars",
+  "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
+  "bin": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "scripts": {
     "test": "vitest test",
+    "dev": "tsx src/index.ts build --",
     "build": "tsup src/index.ts --format cjs,esm --dts --clean"
   },
   "author": "",

@@ -2,7 +2,7 @@
 
 import { Command } from 'commander';
 import path from 'path';
-import { transformDirectory, cleanup } from './build';
+import { transformDirectory, cleanup } from '../utils/transform-directory';
 
 interface TransformOptions {
   outDir: string;
@@ -11,16 +11,9 @@ interface TransformOptions {
   clean: boolean;
 }
 
-const program = new Command();
-
-program
-  .name('jsx-to-handlebars')
-  .description('Transform JSX templates to use Handlebars syntax')
-  .version('0.1.0');
-
-program
-  .command('transform')
-  .description('Transform JSX files to use Handlebars syntax')
+export const build = new Command()
+  .name('build')
+  .description('Build JSX files to use Handlebars syntax')
   .argument(
     '[src]',
     'Source directory containing JSX/TSX files',
@@ -60,5 +53,3 @@ program
       process.exit(1);
     }
   });
-
-program.parse(process.argv);

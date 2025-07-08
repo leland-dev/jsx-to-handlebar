@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { transformSync } from '@babel/core';
-import plugin from '../src';
+import plugin from '.';
 import prettier from 'prettier';
 
 describe('babel-plugin-jsx-to-handlebars', () => {

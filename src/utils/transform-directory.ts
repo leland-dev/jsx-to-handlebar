@@ -1,7 +1,7 @@
 import { transformFileSync } from '@babel/core';
 import fs from 'fs';
 import path from 'path';
-import plugin from './index';
+import plugin from '../plugin/index';
 import { minimatch } from 'minimatch';
 
 interface BuildOptions {
