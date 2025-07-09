@@ -5,7 +5,7 @@
         "name": "Launch",
         "type": "node-terminal",
         "request": "launch",
-        "command": "yarn dev /Users/braydonjones/Documents/leland/leland-emails/src/emails"        
+        "command": "yarn dev"        
         }
     ]
 }

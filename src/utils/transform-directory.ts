@@ -1,4 +1,4 @@
-import { transformFileAsync, transformFileSync } from '@babel/core';
+import { transformFileAsync } from '@babel/core';
 import fs from 'fs';
 import path from 'path';
 import plugin from '../plugin/index';

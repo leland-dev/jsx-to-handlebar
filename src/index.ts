@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import packageJson from '../package.json';
 import { build } from './commands/build';
+import { buildEmail } from './commands/build-email';
 
 process.on('SIGINT', () => process.exit(0));
 process.on('SIGTERM', () => process.exit(0));
@@ -17,6 +18,7 @@ async function main() {
     );
 
   program.addCommand(build);
+  program.addCommand(buildEmail);
 
   program.parse(process.argv);
 }
