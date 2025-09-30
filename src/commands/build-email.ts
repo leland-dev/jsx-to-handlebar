@@ -3,7 +3,7 @@
 import { Command } from 'commander';
 import path from 'path';
 import { transformDirectoryEmail } from '../utils/transform-directory-email';
-import ora from 'ora';
+//import ora from 'ora';
 import logSymbols from 'log-symbols';
 
 interface TransformEmailOptions {
@@ -37,7 +37,7 @@ export const buildEmail = new Command()
   .option('--clean', 'Clean output directory before transforming', false)
   .action(async (src: string, options: TransformEmailOptions) => {
     try {
-      const spinner = ora('Building email templates...').start();
+      //const spinner = ora('Building email templates...').start();
 
       const srcDir = path.resolve(process.cwd(), src);
       const outDir = path.resolve(process.cwd(), options.outDir);
@@ -56,18 +56,14 @@ export const buildEmail = new Command()
           include: options.include,
           exclude: options.exclude,
         },
-        (text: string) => (spinner.text = text),
-        (text: string) =>
-          spinner?.stopAndPersist({
-            symbol: logSymbols.error,
-            text,
-          })
+        (text: string) => console.log(text),
+        (text: string) => console.error(text)
       );
 
-      spinner.stopAndPersist({
-        text: 'Successfully built email templates',
-        symbol: logSymbols.success,
-      });
+      // spinner.stopAndPersist({
+      //   text: 'Successfully built email templates',
+      //   symbol: logSymbols.success,
+      // });
     } catch (error) {
       console.error('Error during email build:', error);
       process.exit(1);

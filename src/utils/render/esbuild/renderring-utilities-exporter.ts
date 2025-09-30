@@ -2,6 +2,8 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { Loader, PluginBuild, ResolveOptions } from 'esbuild';
 import { escapeStringForRegex } from './escape-string-for-regex';
+import plugin from '../../../plugin';
+import { transformFileAsync } from '@babel/core';
 
 /**
  * Made to export the `render` function out of the user's email template
@@ -26,8 +28,14 @@ export const renderingUtilitiesExporter = (emailTemplates: string[]) => ({
         ),
       },
       async ({ path: pathToFile }) => {
+        const result = await transformFileAsync(pathToFile, {
+          plugins: [plugin],
+          parserOpts: {
+            plugins: ['jsx', 'typescript'],
+          },
+        });
         return {
-          contents: `${await fs.readFile(pathToFile, 'utf8')};
+          contents: `${result?.code};
           export { render } from 'react-email-module-that-will-export-render'
           export { createElement as reactEmailCreateReactElement } from 'react';
         `,

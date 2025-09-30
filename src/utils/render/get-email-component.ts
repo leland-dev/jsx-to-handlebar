@@ -24,8 +24,7 @@ const EmailComponentModule = z.object({
 });
 
 export const getEmailComponent = async (
-  emailPath: string,
-  ...plugins: Plugin[]
+  emailPath: string
 ): Promise<
   | {
       emailComponent: EmailComponent;
@@ -43,7 +42,7 @@ export const getEmailComponent = async (
     const buildData = await build({
       bundle: true,
       entryPoints: [emailPath],
-      plugins: [renderingUtilitiesExporter([emailPath]), ...plugins],
+      plugins: [renderingUtilitiesExporter([emailPath])],
       platform: 'node',
       write: false,
 

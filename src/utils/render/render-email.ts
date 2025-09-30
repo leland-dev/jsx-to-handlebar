@@ -1,11 +1,10 @@
-import { babelPlugin } from './esbuild/babel-plugin';
 import { getEmailComponent } from './get-email-component';
 import path from 'path';
 
 export const renderEmail = async (
   srcPath: string
 ): Promise<{ result: string } | { error: string }> => {
-  const componentResult = await getEmailComponent(srcPath, babelPlugin);
+  const componentResult = await getEmailComponent(srcPath);
   if ('error' in componentResult) {
     return { error: `Failed while rendering ${path.basename(srcPath)}` };
   }
