@@ -21,6 +21,8 @@ export const runBundledCode = (
     TextEncoder,
     TextEncoderStream,
     ReadableStream,
+    WritableStream,
+    TransformStream,
     URL,
     URLSearchParams,
     Headers,
